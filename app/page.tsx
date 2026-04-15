@@ -115,6 +115,7 @@ export default function App() {
   const [manuPages, setManuPages] = useState(0)
   const [manuProcessing, setManuProcessing] = useState(false)
   const [manuDone, setManuDone] = useState(false)
+  const [manuPdfUrl, setManuPdfUrl] = useState<string|null>(null)
   const manuFileRef = useRef<HTMLInputElement>(null)
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -351,21 +352,45 @@ export default function App() {
                       style={{ border:'1.5px dashed #C9A84C44', borderRadius:10, padding:20, marginBottom:14, textAlign:'center', cursor:'pointer', background:manuDone?'rgba(201,168,76,0.06)':'transparent' }}>
                       <div style={{ fontSize:28, marginBottom:6 }}>{manuDone?'📄':'📎'}</div>
                       <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>
-                        {manuProcessing ? 'Procesando...' : manuDone ? `✓ ${manuPages} páginas procesadas` : 'Subir páginas o PDF'}
+                        {manuProcessing ? 'Generando PDF...' : manuDone ? `✓ ${manuPages} páginas · PDF listo` : 'Subir fotos de páginas'}
                       </div>
                       <div style={{ fontSize:9, color:'#5C574F', marginTop:4 }}>PDF, JPG, PNG · hasta 200 páginas</div>
-                      <input ref={manuFileRef} type="file" accept=".pdf,image/*" multiple style={{ display:'none' }} onChange={async e => {
+                      <input ref={manuFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display:'none' }} onChange={async e => {
                         const files = e.target.files
                         if (!files || files.length === 0) return
                         setManuProcessing(true)
-                        let total = 0
-                        for (let i = 0; i < files.length; i++) total += Math.ceil(files[i].size / 50000)
-                        await new Promise(r => setTimeout(r, 1200))
-                        setManuPages(Math.max(total, files.length))
+                        const { jsPDF } = await import('jspdf')
+                        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+                        for (let i = 0; i < files.length; i++) {
+                          const file = files[i]
+                          const dataUrl = await new Promise<string>(res => {
+                            const canvas = document.createElement('canvas')
+                            const img = document.createElement('img')
+                            const url = URL.createObjectURL(file)
+                            img.onload = () => {
+                              canvas.width = img.width; canvas.height = img.height
+                              canvas.getContext('2d')?.drawImage(img, 0, 0)
+                              URL.revokeObjectURL(url)
+                              res(canvas.toDataURL('image/jpeg', 0.85))
+                            }
+                            img.src = url
+                          })
+                          if (i > 0) pdf.addPage()
+                          pdf.addImage(dataUrl, 'JPEG', 0, 0, 210, 297)
+                        }
+                        const pdfUrl = pdf.output('datauristring')
+                        setManuPdfUrl(pdfUrl)
+                        setManuPages(files.length)
                         setManuProcessing(false)
                         setManuDone(true)
                       }} />
                     </div>
+                    {manuDone && manuPdfUrl && (
+                      <a href={manuPdfUrl} download={`${manuTitle||'manuscrito'}.pdf`}
+                        style={{ display:'block', textAlign:'center', background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.3)', borderRadius:8, padding:'10px', color:'#4ADE80', fontSize:12, fontWeight:600, marginBottom:12, textDecoration:'none' }}>
+                        ⬇️ Descargar PDF ({manuPages} páginas)
+                      </a>
+                    )}
                     <div style={{ marginBottom:10 }}>
                       <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>TÍTULO DEL MANUSCRITO</label>
                       <input value={manuTitle} onChange={e => setManuTitle(e.target.value)} placeholder="Nombre de tu manuscrito" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' as any }} />
