@@ -116,6 +116,7 @@ export default function App() {
   const [manuProcessing, setManuProcessing] = useState(false)
   const [manuDone, setManuDone] = useState(false)
   const [manuPdfUrl, setManuPdfUrl] = useState<string|null>(null)
+  const [manuCloudUrl, setManuCloudUrl] = useState<string|null>(null)
   const manuFileRef = useRef<HTMLInputElement>(null)
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -378,18 +379,37 @@ export default function App() {
                           if (i > 0) pdf.addPage()
                           pdf.addImage(dataUrl, 'JPEG', 0, 0, 210, 297)
                         }
-                        const pdfUrl = pdf.output('datauristring')
-                        setManuPdfUrl(pdfUrl)
+                        const pdfBlob = pdf.output('blob')
+                        // Subir a Cloudinary
+                        const formData = new FormData()
+                        formData.append('file', pdfBlob, 'manuscrito.pdf')
+                        formData.append('upload_preset', 'gotham-manuscripts')
+                        formData.append('resource_type', 'raw')
+                        try {
+                          const res = await fetch('https://api.cloudinary.com/v1_1/dhcymcjyt/raw/upload', { method:'POST', body:formData })
+                          const json = await res.json()
+                          if (json.secure_url) {
+                            setManuPdfUrl(json.secure_url)
+                            setManuCloudUrl(json.secure_url)
+                          } else {
+                            setManuPdfUrl(pdf.output('datauristring'))
+                          }
+                        } catch {
+                          setManuPdfUrl(pdf.output('datauristring'))
+                        }
                         setManuPages(files.length)
                         setManuProcessing(false)
                         setManuDone(true)
                       }} />
                     </div>
                     {manuDone && manuPdfUrl && (
-                      <a href={manuPdfUrl} download={`${manuTitle||'manuscrito'}.pdf`}
-                        style={{ display:'block', textAlign:'center', background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.3)', borderRadius:8, padding:'10px', color:'#4ADE80', fontSize:12, fontWeight:600, marginBottom:12, textDecoration:'none' }}>
-                        ⬇️ Descargar PDF ({manuPages} páginas)
-                      </a>
+                      <div style={{ marginBottom:12 }}>
+                        <a href={manuPdfUrl || '#'} download={!manuCloudUrl ? `${manuTitle||'manuscrito'}.pdf` : undefined} target={manuCloudUrl ? '_blank' : undefined}
+                          style={{ display:'block', textAlign:'center', background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.3)', borderRadius:8, padding:'10px', color:'#4ADE80', fontSize:12, fontWeight:600, marginBottom:6, textDecoration:'none' }}>
+                          ⬇️ Descargar PDF ({manuPages} páginas)
+                        </a>
+                        {manuCloudUrl && <div style={{ fontSize:9, color:'#5C574F', textAlign:'center' }}>✓ PDF guardado en la nube</div>}
+                      </div>
                     )}
                     <div style={{ marginBottom:10 }}>
                       <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>TÍTULO DEL MANUSCRITO</label>
@@ -412,7 +432,7 @@ export default function App() {
                     <button onClick={async () => {
                       if (!manuTitle) return alert('Añade un título')
                       if (!manuDone) return alert('Sube primero el archivo')
-                      const b: Book = { id:'m'+Date.now(), title:manuTitle, author:manuAuthor||'Yo', status:manuStatus, genre:'Manuscrito', is_own:true, synopsis:`Manuscrito personal · ${manuPages} páginas` }
+                      const b: Book = { id:'m'+Date.now(), title:manuTitle, author:manuAuthor||'Yo', status:manuStatus, genre:'Manuscrito', is_own:true, synopsis:`Manuscrito personal · ${manuPages} páginas${manuCloudUrl ? ' · PDF: ' + manuCloudUrl : ''}` }
                       await addBook(b)
                       setManuTitle(''); setManuAuthor(''); setManuDone(false); setManuPages(0)
                       alert('Manuscrito registrado'); setView('library')
