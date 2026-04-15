@@ -37,11 +37,15 @@ function CoverImg({ isbn, customCover, size = 48, height = 66, bookId, onCoverCh
     try {
       const ext = file.name.split('.').pop() || 'jpg'
       const path = `${bookId}_${Date.now()}.${ext}`
+      // Listar buckets para debug
+      const { data: buckets } = await supabase.storage.listBuckets()
+      const bucketNames = buckets?.map(b => b.name).join(', ') || 'ninguno'
+      
       const { data, error } = await supabase.storage.from('covers').upload(path, file, { upsert: true })
-      if (error) { alert('Error subiendo: ' + error.message); setUploading(false); return }
+      if (error) { alert('Buckets: ' + bucketNames + ' | Error: ' + error.message); setUploading(false); return }
       const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
       if (urlData?.publicUrl) onCoverChange(urlData.publicUrl)
-      else alert('No se pudo obtener URL')
+      else alert('No URL')
     } catch(err: any) {
       alert('Error: ' + err.message)
     }
