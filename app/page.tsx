@@ -35,14 +35,23 @@ function CoverImg({ isbn, customCover, size = 48, height = 66, bookId, onCoverCh
     if (!file || !onCoverChange) return
     setUploading(true)
     try {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string
-        if (dataUrl) onCoverChange(dataUrl)
+      const canvas = document.createElement('canvas')
+      const img = document.createElement('img')
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        const maxW = 200, maxH = 280
+        let w = img.width, h = img.height
+        if (w > maxW) { h = h * maxW / w; w = maxW }
+        if (h > maxH) { w = w * maxH / h; h = maxH }
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d')?.drawImage(img, 0, 0, w, h)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+        URL.revokeObjectURL(url)
+        onCoverChange(dataUrl)
         setUploading(false)
       }
-      reader.onerror = () => { alert('Error leyendo imagen'); setUploading(false) }
-      reader.readAsDataURL(file)
+      img.onerror = () => { alert('Error cargando imagen'); setUploading(false) }
+      img.src = url
     } catch(err: any) {
       alert('Error: ' + err.message)
       setUploading(false)
