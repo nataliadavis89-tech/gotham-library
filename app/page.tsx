@@ -32,24 +32,21 @@ function CoverImg({ isbn, customCover, size = 48, height = 66, bookId, onCoverCh
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !bookId || !onCoverChange) return
+    if (!file || !onCoverChange) return
     setUploading(true)
     try {
-      const ext = file.name.split('.').pop() || 'jpg'
-      const path = `${bookId}_${Date.now()}.${ext}`
-      // Listar buckets para debug
-      const { data: buckets } = await supabase.storage.listBuckets()
-      const bucketNames = buckets?.map(b => b.name).join(', ') || 'ninguno'
-      
-      const { data, error } = await supabase.storage.from('covers').upload(path, file, { upsert: true })
-      if (error) { alert('Buckets: ' + bucketNames + ' | Error: ' + error.message); setUploading(false); return }
-      const { data: urlData } = supabase.storage.from('covers').getPublicUrl(path)
-      if (urlData?.publicUrl) onCoverChange(urlData.publicUrl)
-      else alert('No URL')
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string
+        if (dataUrl) onCoverChange(dataUrl)
+        setUploading(false)
+      }
+      reader.onerror = () => { alert('Error leyendo imagen'); setUploading(false) }
+      reader.readAsDataURL(file)
     } catch(err: any) {
       alert('Error: ' + err.message)
+      setUploading(false)
     }
-    setUploading(false)
   }
 
   return (
