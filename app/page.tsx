@@ -260,7 +260,7 @@ export default function App() {
                 <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 14px 4px' }}>
                   {sec.items.slice(0, 10).map(b => (
                     <button key={b.id} onClick={() => goBook(b)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 80, flexShrink: 0, textAlign: 'center' }}>
-                      <CoverImg isbn={b.isbn} size={72} height={100} />
+                      <CoverImg isbn={b.isbn} customCover={b.custom_cover} size={72} height={100} />
                       <div style={{ fontSize: 8, color: '#E4DFD6', marginTop: 5, lineHeight: 1.3, width: 80, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{b.title}</div>
                       <div style={{ fontSize: 7, color: '#5C574F', marginTop: 2 }}>{b.author}</div>
                       {sec.showProgress && b.progress ? (
@@ -311,7 +311,7 @@ export default function App() {
             <div style={{ fontSize: 9, color: '#5C574F', padding: '0 14px 6px', letterSpacing: 1 }}>{filteredBooks.length} libros</div>
             {filteredBooks.map(b => (
               <button key={b.id} onClick={() => goBook(b)} style={{ width: '100%', background: 'none', border: 'none', borderBottom: '1px solid #ffffff06', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', textAlign: 'left' }}>
-                <CoverImg isbn={b.isbn} size={40} height={56} />
+                <CoverImg isbn={b.isbn} customCover={b.custom_cover} size={40} height={56} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, fontWeight: 500, color: '#E4DFD6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</div>
                   <div style={{ fontSize: 10, color: '#9A9289', marginTop: 2 }}>{b.author}</div>
@@ -529,7 +529,7 @@ export default function App() {
                   </div>
                 ) : wishlist.map(b => (
                   <div key={b.id} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderBottom: '1px solid #ffffff06', alignItems: 'center' }}>
-                    <button onClick={() => goBook(b)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><CoverImg isbn={b.isbn} size={40} height={56} /></button>
+                    <button onClick={() => goBook(b)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><CoverImg isbn={b.isbn} customCover={b.custom_cover} size={40} height={56} /></button>
                     <button onClick={() => goBook(b)} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                       <div style={{ fontSize: 12, fontWeight: 500, color: '#E4DFD6' }}>{b.title}</div>
                       <div style={{ fontSize: 10, color: '#9A9289' }}>{b.author}</div>
