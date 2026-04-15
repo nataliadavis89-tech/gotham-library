@@ -56,30 +56,7 @@ function CoverImg({ isbn, customCover, size = 48, height = 66, bookId, onCoverCh
           <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
         </>
       )}
-      {profileModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', zIndex:200 }} onClick={() => setProfileModal(null)}>
-          <div style={{ width:'100%', maxWidth:480, margin:'0 auto', background:'#1a1a1a', borderRadius:'20px 20px 0 0', padding:20, paddingBottom:34, maxHeight:'70vh', display:'flex', flexDirection:'column' }} onClick={e=>e.stopPropagation()}>
-            <div style={{ width:36, height:4, background:'#333', borderRadius:2, margin:'0 auto 14px' }} />
-            <div style={{ fontSize:16, fontWeight:700, color:'#E4DFD6' }}>{profileModal.value}</div>
-            <div style={{ fontSize:10, color:'#5C574F', marginTop:2, marginBottom:12 }}>
-              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).length} libros terminados
-            </div>
-            <div style={{ overflowY:'auto', flex:1 }}>
-              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).map(b => (
-                <button key={b.id} onClick={() => { setProfileModal(null); goBook(b) }}
-                  style={{ width:'100%', display:'flex', gap:10, padding:'10px 0', background:'none', border:'none', borderBottom:'1px solid #ffffff08', cursor:'pointer', textAlign:'left', alignItems:'center' }}>
-                  <CoverImg isbn={b.isbn} customCover={b.custom_cover} size={36} height={50} />
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>{b.title}</div>
-                    <div style={{ fontSize:10, color:'#9A9289' }}>{b.author}</div>
-                  </div>
-                  {b.rating ? <span style={{ fontSize:11, color:'#C9A84C' }}>{'★'.repeat(b.rating)}</span> : null}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   )
 }
@@ -98,30 +75,7 @@ function Stars({ rating, onChange }: { rating?: number; onChange?: (n: number) =
       {[1,2,3,4,5].map(i => (
         <span key={i} onClick={() => onChange?.(i)} style={{ color: (rating||0) >= i ? '#C9A84C' : '#333', fontSize: 16, cursor: onChange ? 'pointer' : 'default' }}>★</span>
       ))}
-      {profileModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', zIndex:200 }} onClick={() => setProfileModal(null)}>
-          <div style={{ width:'100%', maxWidth:480, margin:'0 auto', background:'#1a1a1a', borderRadius:'20px 20px 0 0', padding:20, paddingBottom:34, maxHeight:'70vh', display:'flex', flexDirection:'column' }} onClick={e=>e.stopPropagation()}>
-            <div style={{ width:36, height:4, background:'#333', borderRadius:2, margin:'0 auto 14px' }} />
-            <div style={{ fontSize:16, fontWeight:700, color:'#E4DFD6' }}>{profileModal.value}</div>
-            <div style={{ fontSize:10, color:'#5C574F', marginTop:2, marginBottom:12 }}>
-              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).length} libros terminados
-            </div>
-            <div style={{ overflowY:'auto', flex:1 }}>
-              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).map(b => (
-                <button key={b.id} onClick={() => { setProfileModal(null); goBook(b) }}
-                  style={{ width:'100%', display:'flex', gap:10, padding:'10px 0', background:'none', border:'none', borderBottom:'1px solid #ffffff08', cursor:'pointer', textAlign:'left', alignItems:'center' }}>
-                  <CoverImg isbn={b.isbn} customCover={b.custom_cover} size={36} height={50} />
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>{b.title}</div>
-                    <div style={{ fontSize:10, color:'#9A9289' }}>{b.author}</div>
-                  </div>
-                  {b.rating ? <span style={{ fontSize:11, color:'#C9A84C' }}>{'★'.repeat(b.rating)}</span> : null}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   )
 }
@@ -818,6 +772,7 @@ export default function App() {
           </div>
         </div>
       )}
+      
       {profileModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', zIndex:200 }} onClick={() => setProfileModal(null)}>
           <div style={{ width:'100%', maxWidth:480, margin:'0 auto', background:'#1a1a1a', borderRadius:'20px 20px 0 0', padding:20, paddingBottom:34, maxHeight:'70vh', display:'flex', flexDirection:'column' }} onClick={e=>e.stopPropagation()}>
