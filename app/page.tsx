@@ -102,7 +102,7 @@ function Stars({ rating, onChange }: { rating?: number; onChange?: (n: number) =
 type View = 'home' | 'library' | 'add' | 'recommend' | 'profile' | 'detail' | 'rewards'
 
 export default function App() {
-  const { books, rewards, rewPerBook, initialized, init, addBook, updateBook, addReward, setRewPerBook, balance } = useLibrary()
+  const { books, rewards, rewPerBook, initialized, init, addBook, updateBook, deleteBook, addReward, deleteReward, setRewPerBook, balance } = useLibrary()
   const [view, setView] = useState<View>('home')
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const [libFilter, setLibFilter] = useState('all')
@@ -548,6 +548,7 @@ export default function App() {
             <div style={{ background: '#111', padding: '14px 16px', borderBottom: '1px solid #C9A84C22', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <button onClick={() => setView('library')} style={{ background: 'none', border: 'none', color: '#E4DFD6', fontSize: 14, cursor: 'pointer' }}>← Volver</button>
               <StatusBadge status={selectedBook.status} />
+              <button onClick={async () => { if(confirm('¿Eliminar este libro del archivo?')) { await deleteBook(selectedBook.id); setView('library') } }} style={{ background:'none', border:'none', color:'#F87171', fontSize:11, cursor:'pointer' }}>🗑</button>
             </div>
             <div style={{ display: 'flex', gap: 14, padding: 14, background: '#1a1a1a', borderBottom: '1px solid #C9A84C11' }}>
               <CoverImg isbn={selectedBook.isbn} customCover={selectedBook.custom_cover} size={110} height={154} bookId={selectedBook.id} onCoverChange={async (url) => { await updateBook(selectedBook.id, { custom_cover: url }); setSelectedBook(b => b ? {...b, custom_cover: url} : b) }} />
@@ -745,6 +746,7 @@ export default function App() {
                   <span style={{ flex: 1, fontSize: 11, color: '#9A9289', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: r.type==='earn' ? '#4ADE80' : '#F87171', margin: '0 8px' }}>{r.type==='earn'?'+':'-'}{r.amount}€</span>
                   <span style={{ fontSize: 9, color: '#5C574F' }}>{r.date}</span>
+                  <button onClick={() => { if(confirm('¿Eliminar esta entrada?')) deleteReward(rewards.length - 1 - i) }} style={{ background:'none', border:'none', color:'#F87171', fontSize:12, cursor:'pointer', marginLeft:6 }}>✕</button>
                 </div>
               ))}
             </div>

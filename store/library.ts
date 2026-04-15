@@ -91,6 +91,8 @@ type Store = {
   updateBook: (id: string, data: Partial<Book>) => Promise<void>
   addReward: (r: RewardLog) => Promise<void>
   setRewPerBook: (n: number) => void
+  deleteBook: (id: string) => Promise<void>
+  deleteReward: (index: number) => Promise<void>
   balance: () => number
 }
 
@@ -129,6 +131,19 @@ export const useLibrary = create<Store>((set, get) => ({
   },
 
   setRewPerBook: (n) => set({ rewPerBook: n }),
+
+  deleteBook: async (id) => {
+    await supabase.from('books').delete().eq('id', id)
+    set(s => ({ books: s.books.filter(b => b.id !== id) }))
+  },
+
+  deleteReward: async (index) => {
+    const { rewards } = get()
+    const r = rewards[index]
+    if (!r) return
+    if (r.id) await supabase.from('reward_log').delete().eq('id', r.id)
+    set(s => ({ rewards: s.rewards.filter((_, i) => i !== index) }))
+  },
 
   balance: () => get().rewards.reduce((a, r) => a + (r.type === 'earn' ? r.amount : -r.amount), 0),
 }))
