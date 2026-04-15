@@ -1,7 +1,7 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useLibrary } from '../store/library'
-import { Book, BookStatus } from '../lib/supabase'
+import { Book, BookStatus, supabase } from '../lib/supabase'
 
 const STATUS_COLORS: Record<string, string> = {
   finished: '#4ADE80', reading: '#60A5FA', pending: '#C9A84C',
@@ -12,15 +12,76 @@ const STATUS_LABELS: Record<string, string> = {
   wishlist: 'OBJETIVO', abandoned: 'ABANDONADO'
 }
 
-function CoverImg({ isbn, size = 48, height = 66 }: { isbn?: string; size?: number; height?: number }) {
+async function uploadCover(file: File, bookId: string): Promise<string | null> {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `${bookId}.${ext}`
+  const { error } = await supabase.storage.from('covers').upload(path, file, { upsert: true })
+  if (error) { console.error(error); return null }
+  const { data } = supabase.storage.from('covers').getPublicUrl(path)
+  return data.publicUrl
+}
+
+function CoverImg({ isbn, customCover, size = 48, height = 66, bookId, onCoverChange }: {
+  isbn?: string; customCover?: string; size?: number; height?: number;
+  bookId?: string; onCoverChange?: (url: string) => void
+}) {
   const [ok, setOk] = useState(true)
-  const uri = isbn ? `https://covers.openlibrary.org/b/isbn/${isbn.replace(/[^0-9X]/gi,'')}-M.jpg` : null
-  if (!uri || !ok) return (
-    <div style={{ width: size, height, background: '#1a1a1a', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #C9A84C22', flexShrink: 0 }}>
-      <span style={{ fontSize: 16, opacity: 0.4 }}>🦇</span>
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const uri = customCover || (isbn && ok ? `https://covers.openlibrary.org/b/isbn/${isbn.replace(/[^0-9X]/gi,'')}-M.jpg` : null)
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !bookId || !onCoverChange) return
+    setUploading(true)
+    const url = await uploadCover(file, bookId)
+    if (url) onCoverChange(url)
+    setUploading(false)
+  }
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0, width: size, height }}>
+      {uri
+        ? <img src={uri} onError={() => setOk(false)} style={{ width: size, height, borderRadius: 6, objectFit: 'cover', display: 'block' }} />
+        : <div style={{ width: size, height, background: '#1a1a1a', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #C9A84C22' }}>
+            <span style={{ fontSize: size > 60 ? 24 : 14, opacity: 0.4 }}>🦇</span>
+          </div>
+      }
+      {onCoverChange && bookId && (
+        <>
+          <button onClick={() => fileRef.current?.click()} disabled={uploading}
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: uploading ? 'rgba(201,168,76,0.8)' : 'rgba(0,0,0,0.75)', border: 'none', color: '#fff', fontSize: 9, padding: '4px 0', borderRadius: '0 0 6px 6px', cursor: 'pointer', fontWeight: 600 }}>
+            {uploading ? '...' : '📷 Cambiar'}
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+        </>
+      )}
+      {profileModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', zIndex:200 }} onClick={() => setProfileModal(null)}>
+          <div style={{ width:'100%', maxWidth:480, margin:'0 auto', background:'#1a1a1a', borderRadius:'20px 20px 0 0', padding:20, paddingBottom:34, maxHeight:'70vh', display:'flex', flexDirection:'column' }} onClick={e=>e.stopPropagation()}>
+            <div style={{ width:36, height:4, background:'#333', borderRadius:2, margin:'0 auto 14px' }} />
+            <div style={{ fontSize:16, fontWeight:700, color:'#E4DFD6' }}>{profileModal.value}</div>
+            <div style={{ fontSize:10, color:'#5C574F', marginTop:2, marginBottom:12 }}>
+              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).length} libros terminados
+            </div>
+            <div style={{ overflowY:'auto', flex:1 }}>
+              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).map(b => (
+                <button key={b.id} onClick={() => { setProfileModal(null); goBook(b) }}
+                  style={{ width:'100%', display:'flex', gap:10, padding:'10px 0', background:'none', border:'none', borderBottom:'1px solid #ffffff08', cursor:'pointer', textAlign:'left', alignItems:'center' }}>
+                  <CoverImg isbn={b.isbn} customCover={b.custom_cover} size={36} height={50} />
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>{b.title}</div>
+                    <div style={{ fontSize:10, color:'#9A9289' }}>{b.author}</div>
+                  </div>
+                  {b.rating ? <span style={{ fontSize:11, color:'#C9A84C' }}>{'★'.repeat(b.rating)}</span> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
-  return <img src={uri} onError={() => setOk(false)} style={{ width: size, height, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -37,6 +98,30 @@ function Stars({ rating, onChange }: { rating?: number; onChange?: (n: number) =
       {[1,2,3,4,5].map(i => (
         <span key={i} onClick={() => onChange?.(i)} style={{ color: (rating||0) >= i ? '#C9A84C' : '#333', fontSize: 16, cursor: onChange ? 'pointer' : 'default' }}>★</span>
       ))}
+      {profileModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', zIndex:200 }} onClick={() => setProfileModal(null)}>
+          <div style={{ width:'100%', maxWidth:480, margin:'0 auto', background:'#1a1a1a', borderRadius:'20px 20px 0 0', padding:20, paddingBottom:34, maxHeight:'70vh', display:'flex', flexDirection:'column' }} onClick={e=>e.stopPropagation()}>
+            <div style={{ width:36, height:4, background:'#333', borderRadius:2, margin:'0 auto 14px' }} />
+            <div style={{ fontSize:16, fontWeight:700, color:'#E4DFD6' }}>{profileModal.value}</div>
+            <div style={{ fontSize:10, color:'#5C574F', marginTop:2, marginBottom:12 }}>
+              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).length} libros terminados
+            </div>
+            <div style={{ overflowY:'auto', flex:1 }}>
+              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).map(b => (
+                <button key={b.id} onClick={() => { setProfileModal(null); goBook(b) }}
+                  style={{ width:'100%', display:'flex', gap:10, padding:'10px 0', background:'none', border:'none', borderBottom:'1px solid #ffffff08', cursor:'pointer', textAlign:'left', alignItems:'center' }}>
+                  <CoverImg isbn={b.isbn} customCover={b.custom_cover} size={36} height={50} />
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>{b.title}</div>
+                    <div style={{ fontSize:10, color:'#9A9289' }}>{b.author}</div>
+                  </div>
+                  {b.rating ? <span style={{ fontSize:11, color:'#C9A84C' }}>{'★'.repeat(b.rating)}</span> : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -50,7 +135,14 @@ export default function App() {
   const [libFilter, setLibFilter] = useState('all')
   const [libSort, setLibSort] = useState('default')
   const [libSearch, setLibSearch] = useState('')
-  const [addMode, setAddMode] = useState<'isbn'|'search'|'manual'>('search')
+  const [addMode, setAddMode] = useState<'isbn'|'search'|'manual'|'manuscript'>('search')
+  const [manuTitle, setManuTitle] = useState('')
+  const [manuAuthor, setManuAuthor] = useState('')
+  const [manuStatus, setManuStatus] = useState<BookStatus>('pending')
+  const [manuPages, setManuPages] = useState(0)
+  const [manuProcessing, setManuProcessing] = useState(false)
+  const [manuDone, setManuDone] = useState(false)
+  const manuFileRef = useRef<HTMLInputElement>(null)
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searching, setSearching] = useState(false)
@@ -60,6 +152,7 @@ export default function App() {
   const [wishResults, setWishResults] = useState<any[]>([])
   const [recGenres, setRecGenres] = useState<string[]>(['Terror','Ficcion'])
   const [showGenrePicker, setShowGenrePicker] = useState(false)
+  const [profileModal, setProfileModal] = useState<{type:'author'|'genre', value:string}|null>(null)
   const [recs, setRecs] = useState<any[]>([])
   const [rewardForm, setRewardForm] = useState<'edit'|'add'|'spend'|null>(null)
   const [rewardAmt, setRewardAmt] = useState('')
@@ -272,12 +365,64 @@ export default function App() {
             </div>
             <div style={{ padding: 14 }}>
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {(['search','isbn','manual'] as const).map(m => (
-                  <button key={m} onClick={() => setAddMode(m)} style={{ flex: 1, background: addMode===m ? '#C9A84C22' : '#1a1a1a', border: `1px solid ${addMode===m ? '#C9A84C66' : '#ffffff08'}`, borderRadius: 10, padding: 10, cursor: 'pointer' }}>
-                    <div style={{ fontSize: 16 }}>{m==='search'?'🔍':m==='isbn'?'🔢':'✏️'}</div>
-                    <div style={{ fontSize: 9, color: addMode===m ? '#C9A84C' : '#9A9289', fontWeight: 700, marginTop: 4 }}>{m==='search'?'Buscar':m==='isbn'?'ISBN':'Manual'}</div>
+                {([['search','🔍','Buscar'],['isbn','🔢','ISBN'],['manual','✏️','Manual'],['manuscript','📄','Manuscrito']] as const).map(([m,ic,label]) => (
+                  <button key={m} onClick={() => { setAddMode(m as any); setNewBook({status:'pending'}); setSearchResults([]) }}
+                    style={{ flex: 1, background: addMode===m?'#C9A84C22':'#1a1a1a', border:`1px solid ${addMode===m?'#C9A84C66':'#ffffff08'}`, borderRadius: 10, padding:'10px 4px', cursor:'pointer' }}>
+                    <div style={{ fontSize: 16 }}>{ic}</div>
+                    <div style={{ fontSize: 9, color: addMode===m?'#C9A84C':'#9A9289', fontWeight: 700, marginTop: 4 }}>{label}</div>
                   </button>
                 ))}
+                {addMode === 'manuscript' && (
+                  <div style={{ width:'100%', marginTop: 8 }}>
+                    <div onClick={() => manuFileRef.current?.click()}
+                      style={{ border:'1.5px dashed #C9A84C44', borderRadius:10, padding:20, marginBottom:14, textAlign:'center', cursor:'pointer', background:manuDone?'rgba(201,168,76,0.06)':'transparent' }}>
+                      <div style={{ fontSize:28, marginBottom:6 }}>{manuDone?'📄':'📎'}</div>
+                      <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>
+                        {manuProcessing ? 'Procesando...' : manuDone ? `✓ ${manuPages} páginas procesadas` : 'Subir páginas o PDF'}
+                      </div>
+                      <div style={{ fontSize:9, color:'#5C574F', marginTop:4 }}>PDF, JPG, PNG · hasta 200 páginas</div>
+                      <input ref={manuFileRef} type="file" accept=".pdf,image/*" multiple style={{ display:'none' }} onChange={async e => {
+                        const files = e.target.files
+                        if (!files || files.length === 0) return
+                        setManuProcessing(true)
+                        let total = 0
+                        for (let i = 0; i < files.length; i++) total += Math.ceil(files[i].size / 50000)
+                        await new Promise(r => setTimeout(r, 1200))
+                        setManuPages(Math.max(total, files.length))
+                        setManuProcessing(false)
+                        setManuDone(true)
+                      }} />
+                    </div>
+                    <div style={{ marginBottom:10 }}>
+                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>TÍTULO DEL MANUSCRITO</label>
+                      <input value={manuTitle} onChange={e => setManuTitle(e.target.value)} placeholder="Nombre de tu manuscrito" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' as any }} />
+                    </div>
+                    <div style={{ marginBottom:10 }}>
+                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>AUTOR</label>
+                      <input value={manuAuthor} onChange={e => setManuAuthor(e.target.value)} placeholder="Tu nombre" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' as any }} />
+                    </div>
+                    <div style={{ marginBottom:14 }}>
+                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ESTADO</label>
+                      <div style={{ display:'flex', gap:6 }}>
+                        {(['pending','reading','finished'] as BookStatus[]).map(s => (
+                          <button key={s} onClick={() => setManuStatus(s)} style={{ flex:1, padding:'6px 8px', borderRadius:6, border:`1px solid ${manuStatus===s?'#C9A84C44':'#ffffff08'}`, background:manuStatus===s?'#C9A84C22':'#1a1a1a', color:manuStatus===s?'#C9A84C':'#5C574F', fontSize:9, fontWeight:600, cursor:'pointer' }}>
+                            {s==='pending'?'PENDIENTE':s==='reading'?'LEYENDO':'TERMINADO'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={async () => {
+                      if (!manuTitle) return alert('Añade un título')
+                      if (!manuDone) return alert('Sube primero el archivo')
+                      const b: Book = { id:'m'+Date.now(), title:manuTitle, author:manuAuthor||'Yo', status:manuStatus, genre:'Manuscrito', is_own:true, synopsis:`Manuscrito personal · ${manuPages} páginas` }
+                      await addBook(b)
+                      setManuTitle(''); setManuAuthor(''); setManuDone(false); setManuPages(0)
+                      alert('Manuscrito registrado'); setView('library')
+                    }} style={{ width:'100%', background:'#C9A84C', border:'none', borderRadius:10, padding:14, fontSize:12, fontWeight:700, color:'#080808', letterSpacing:1, cursor:'pointer' }}>
+                      REGISTRAR MANUSCRITO
+                    </button>
+                  </div>
+                )}
               </div>
 
               {addMode === 'search' && (
@@ -432,7 +577,7 @@ export default function App() {
               <StatusBadge status={selectedBook.status} />
             </div>
             <div style={{ display: 'flex', gap: 14, padding: 14, background: '#1a1a1a', borderBottom: '1px solid #C9A84C11' }}>
-              <CoverImg isbn={selectedBook.isbn} size={100} height={140} />
+              <CoverImg isbn={selectedBook.isbn} customCover={selectedBook.custom_cover} size={110} height={154} bookId={selectedBook.id} onCoverChange={async (url) => { await updateBook(selectedBook.id, { custom_cover: url }); setSelectedBook(b => b ? {...b, custom_cover: url} : b) }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#E4DFD6', lineHeight: 1.3 }}>{selectedBook.title.toUpperCase()}</div>
                 <div style={{ fontSize: 11, color: '#9A9289', marginTop: 5 }}>{selectedBook.author}</div>
@@ -540,11 +685,31 @@ export default function App() {
             <div style={{ padding: '0 14px 14px' }}>
               <div style={{ fontSize: 8, letterSpacing: 2, color: '#5C574F', marginBottom: 10 }}>AUTORES MÁS LEÍDOS</div>
               {Object.entries(finished.reduce((acc: Record<string,number>, b) => { acc[b.author]=(acc[b.author]||0)+1; return acc }, {})).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([a,c]) => (
-                <div key={a} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #ffffff06' }}>
+                <button key={a} onClick={() => setProfileModal({type:'author', value:a})} style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', background:'none', border:'none', borderBottom:'1px solid #ffffff06', cursor:'pointer', textAlign:'left' }}>
                   <span style={{ fontSize: 12, color: '#E4DFD6' }}>{a}</span>
-                  <span style={{ fontSize: 11, color: '#8B6914', fontWeight: 600 }}>{c} {c===1?'libro':'libros'}</span>
-                </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={{ fontSize: 11, color: '#8B6914', fontWeight: 600 }}>{c} {c===1?'libro':'libros'}</span>
+                    <span style={{ color:'#5C574F' }}>›</span>
+                  </div>
+                </button>
               ))}
+            </div>
+            <div style={{ padding: '0 14px 14px' }}>
+              <div style={{ fontSize: 8, letterSpacing: 2, color: '#5C574F', marginBottom: 10 }}>GÉNEROS FAVORITOS</div>
+              {Object.entries(finished.reduce((acc: Record<string,number>, b) => { if(b.genre) acc[b.genre]=(acc[b.genre]||0)+1; return acc }, {})).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([g,c]) => (
+                <button key={g} onClick={() => setProfileModal({type:'genre', value:g})} style={{ width:'100%', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', background:'none', border:'none', borderBottom:'1px solid #ffffff06', cursor:'pointer', textAlign:'left' }}>
+                  <span style={{ fontSize: 12, color: '#E4DFD6' }}>{g}</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={{ fontSize: 11, color: '#8B6914', fontWeight: 600 }}>{c} {c===1?'libro':'libros'}</span>
+                    <span style={{ color:'#5C574F' }}>›</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div style={{ padding: '0 14px 14px', textAlign:'center' }}>
+              <button onClick={() => nav('rewards')} style={{ background:'rgba(201,168,76,0.1)', border:'1px solid #C9A84C33', borderRadius:10, padding:'12px 24px', color:'#C9A84C', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                💰 Ver Alcancía — {balance()}€
+              </button>
             </div>
           </div>
         )}
@@ -650,6 +815,30 @@ export default function App() {
             <button onClick={generateRecs} style={{ width: '100%', background: '#C9A84C', border: 'none', borderRadius: 12, padding: 14, fontSize: 13, fontWeight: 700, color: '#080808', cursor: 'pointer' }}>
               ✦ Generar recomendaciones
             </button>
+          </div>
+        </div>
+      )}
+      {profileModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', zIndex:200 }} onClick={() => setProfileModal(null)}>
+          <div style={{ width:'100%', maxWidth:480, margin:'0 auto', background:'#1a1a1a', borderRadius:'20px 20px 0 0', padding:20, paddingBottom:34, maxHeight:'70vh', display:'flex', flexDirection:'column' }} onClick={e=>e.stopPropagation()}>
+            <div style={{ width:36, height:4, background:'#333', borderRadius:2, margin:'0 auto 14px' }} />
+            <div style={{ fontSize:16, fontWeight:700, color:'#E4DFD6' }}>{profileModal.value}</div>
+            <div style={{ fontSize:10, color:'#5C574F', marginTop:2, marginBottom:12 }}>
+              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).length} libros terminados
+            </div>
+            <div style={{ overflowY:'auto', flex:1 }}>
+              {finished.filter(b => profileModal.type==='author' ? b.author===profileModal.value : b.genre===profileModal.value).map(b => (
+                <button key={b.id} onClick={() => { setProfileModal(null); goBook(b) }}
+                  style={{ width:'100%', display:'flex', gap:10, padding:'10px 0', background:'none', border:'none', borderBottom:'1px solid #ffffff08', cursor:'pointer', textAlign:'left', alignItems:'center' }}>
+                  <CoverImg isbn={b.isbn} customCover={b.custom_cover} size={36} height={50} />
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>{b.title}</div>
+                    <div style={{ fontSize:10, color:'#9A9289' }}>{b.author}</div>
+                  </div>
+                  {b.rating ? <span style={{ fontSize:11, color:'#C9A84C' }}>{'★'.repeat(b.rating)}</span> : null}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
