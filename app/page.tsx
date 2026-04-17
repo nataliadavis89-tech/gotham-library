@@ -371,154 +371,82 @@ export default function App() {
         {/* ADD */}
         {view === 'add' && (
           <div>
-            <div style={{ background: '#111', padding: '14px 16px', borderBottom: '1px solid #C9A84C22', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#C9A84C', letterSpacing: 2 }}>NUEVO CASO</span>
+            <div style={{ background:'#111', padding:'14px 16px', borderBottom:'1px solid #C9A84C22' }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'#C9A84C', letterSpacing:2 }}>NUEVO CASO</div>
             </div>
-            <div style={{ padding: 14 }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <div style={{ padding:14 }}>
+              <div style={{ display:'flex', gap:8, marginBottom:16 }}>
                 {([['search','🔍','Buscar'],['isbn','🔢','ISBN'],['manual','✏️','Manual'],['manuscript','📄','Manuscrito']] as const).map(([m,ic,label]) => (
                   <button key={m} onClick={() => { setAddMode(m as any); setNewBook({status:'pending'}); setSearchResults([]) }}
-                    style={{ flex: 1, background: addMode===m?'#C9A84C22':'#1a1a1a', border:`1px solid ${addMode===m?'#C9A84C66':'#ffffff08'}`, borderRadius: 10, padding:'10px 4px', cursor:'pointer' }}>
-                    <div style={{ fontSize: 16 }}>{ic}</div>
-                    <div style={{ fontSize: 9, color: addMode===m?'#C9A84C':'#9A9289', fontWeight: 700, marginTop: 4 }}>{label}</div>
+                    style={{ flex:1, background:addMode===m?'#C9A84C22':'#1a1a1a', border:`1px solid ${addMode===m?'#C9A84C66':'#ffffff08'}`, borderRadius:10, padding:'10px 4px', cursor:'pointer' }}>
+                    <div style={{ fontSize:16 }}>{ic}</div>
+                    <div style={{ fontSize:9, color:addMode===m?'#C9A84C':'#9A9289', fontWeight:700, marginTop:4 }}>{label}</div>
                   </button>
                 ))}
-                {addMode === 'manuscript' && (
-                  <div style={{ width:'100%', marginTop: 8 }}>
-                    <div onClick={() => manuFileRef.current?.click()}
-                      style={{ border:'1.5px dashed #C9A84C44', borderRadius:10, padding:20, marginBottom:14, textAlign:'center', cursor:'pointer', background:manuDone?'rgba(201,168,76,0.06)':'transparent' }}>
-                      <div style={{ fontSize:28, marginBottom:6 }}>{manuDone?'📄':'📎'}</div>
-                      <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>
-                        {manuProcessing ? 'Generando PDF...' : manuDone ? `✓ ${manuPages} páginas · PDF listo` : 'Subir fotos de páginas'}
-                      </div>
-                      <div style={{ fontSize:9, color:'#5C574F', marginTop:4 }}>PDF, JPG, PNG · hasta 200 páginas</div>
-                      <input ref={manuFileRef} type="file" accept="image/*" multiple capture="environment" style={{ display:'none' }} onChange={async e => {
-                        const files = e.target.files
-                        if (!files || files.length === 0) return
-                        setManuProcessing(true)
-                        const { jsPDF } = await import('jspdf')
-                        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-                        for (let i = 0; i < files.length; i++) {
-                          const file = files[i]
-                          const dataUrl = await new Promise<string>(res => {
-                            const canvas = document.createElement('canvas')
-                            const img = document.createElement('img')
-                            const url = URL.createObjectURL(file)
-                            img.onload = () => {
-                              canvas.width = img.width; canvas.height = img.height
-                              canvas.getContext('2d')?.drawImage(img, 0, 0)
-                              URL.revokeObjectURL(url)
-                              res(canvas.toDataURL('image/jpeg', 0.85))
-                            }
-                            img.src = url
-                          })
-                          if (i > 0) pdf.addPage()
-                          pdf.addImage(dataUrl, 'JPEG', 0, 0, 210, 297)
-                        }
-                        const pdfBlob = pdf.output('blob')
-                        // Subir a Cloudinary
-                        const formData = new FormData()
-                        formData.append('file', pdfBlob, 'manuscrito.pdf')
-                        formData.append('upload_preset', 'gotham-manuscripts')
-                        formData.append('resource_type', 'raw')
-                        try {
-                          const res = await fetch('https://api.cloudinary.com/v1_1/dhcymcjyt/raw/upload', { method:'POST', body:formData })
-                          const json = await res.json()
-                          if (json.secure_url) {
-                            setManuPdfUrl(json.secure_url)
-                            setManuCloudUrl(json.secure_url)
-                          } else {
-                            setManuPdfUrl(pdf.output('datauristring'))
-                          }
-                        } catch {
-                          setManuPdfUrl(pdf.output('datauristring'))
-                        }
-                        setManuPages(files.length)
-                        setManuProcessing(false)
-                        setManuDone(true)
-                      }} />
-                    </div>
-                    {manuDone && manuPdfUrl && (
-                      <div style={{ marginBottom:12 }}>
-                        <a href={manuPdfUrl || '#'} download={!manuCloudUrl ? `${manuTitle||'manuscrito'}.pdf` : undefined} target={manuCloudUrl ? '_blank' : undefined}
-                          style={{ display:'block', textAlign:'center', background:'rgba(74,222,128,0.1)', border:'1px solid rgba(74,222,128,0.3)', borderRadius:8, padding:'10px', color:'#4ADE80', fontSize:12, fontWeight:600, marginBottom:6, textDecoration:'none' }}>
-                          ⬇️ Descargar PDF ({manuPages} páginas)
-                        </a>
-                        {manuCloudUrl && <div style={{ fontSize:9, color:'#5C574F', textAlign:'center' }}>✓ PDF guardado en la nube</div>}
-                      </div>
-                    )}
-                    <div style={{ marginBottom:10 }}>
-                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>TÍTULO DEL MANUSCRITO</label>
-                      <input value={manuTitle} onChange={e => setManuTitle(e.target.value)} placeholder="Nombre de tu manuscrito" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' as any }} />
-                    </div>
-                    <div style={{ marginBottom:10 }}>
-                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>AUTOR</label>
-                      <input value={manuAuthor} onChange={e => setManuAuthor(e.target.value)} placeholder="Tu nombre" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' as any }} />
-                    </div>
-                    <div style={{ marginBottom:14 }}>
-                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ESTADO</label>
-                      <div style={{ display:'flex', gap:6 }}>
-                        {(['pending','reading','finished'] as BookStatus[]).map(s => (
-                          <button key={s} onClick={() => setManuStatus(s)} style={{ flex:1, padding:'6px 8px', borderRadius:6, border:`1px solid ${manuStatus===s?'#C9A84C44':'#ffffff08'}`, background:manuStatus===s?'#C9A84C22':'#1a1a1a', color:manuStatus===s?'#C9A84C':'#5C574F', fontSize:9, fontWeight:600, cursor:'pointer' }}>
-                            {s==='pending'?'PENDIENTE':s==='reading'?'LEYENDO':'TERMINADO'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <button onClick={async () => {
-                      if (!manuTitle) return alert('Añade un título')
-                      if (!manuDone) return alert('Sube primero el archivo')
-                      const b: Book = { id:'m'+Date.now(), title:manuTitle, author:manuAuthor||'Yo', status:manuStatus, genre:'Manuscrito', is_own:true, synopsis:`Manuscrito personal · ${manuPages} páginas${manuCloudUrl ? ' · PDF: ' + manuCloudUrl : ''}` }
-                      await addBook(b)
-                      setManuTitle(''); setManuAuthor(''); setManuDone(false); setManuPages(0)
-                      alert('Manuscrito registrado'); setView('library')
-                    }} style={{ width:'100%', background:'#C9A84C', border:'none', borderRadius:10, padding:14, fontSize:12, fontWeight:700, color:'#080808', letterSpacing:1, cursor:'pointer' }}>
-                      REGISTRAR MANUSCRITO
-                    </button>
-                  </div>
-                )}
               </div>
 
-              {addMode === 'search' && (
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 8, letterSpacing: 2, color: '#8B6914', display: 'block', marginBottom: 6 }}>BUSCAR EN OPEN LIBRARY</label>
-                  <input autoFocus value={searchQ} onChange={e => { setSearchQ(e.target.value); searchOL(e.target.value) }} placeholder="Título, autor..." style={{ width: '100%', background: '#1a1a1a', border: '1px solid #C9A84C22', color: '#E4DFD6', fontSize: 13, padding: '10px 12px', borderRadius: 8 }} />
-                  {searching && <div style={{ color: '#C9A84C', fontSize: 10, padding: '6px 0' }}>Buscando...</div>}
-                  {addMode === 'isbn' && (
-                    <div style={{ marginBottom:12 }}>
-                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ISBN</label>
-                      <div style={{ display:'flex', gap:8 }}>
-                        <input value={newBook.isbn||''} onChange={e => setNewBook(p=>({...p, isbn:e.target.value}))} placeholder="9788490326237" inputMode="numeric" style={{ flex:1, background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8 }} />
-                        <button onClick={async () => {
-                          const isbn = (newBook.isbn||'').replace(/[^0-9X]/gi,'')
-                          if (!isbn) return alert('Escribe un ISBN')
-                          setSearching(true)
-                          try {
-                            const r = await fetch('https://openlibrary.org/search.json?isbn='+isbn+'&fields=title,author_name,cover_i,first_publish_year&limit=1')
-                            const j = await r.json()
-                            const d = j.docs?.[0]
-                            if (d) {
-                              const coverUrl = d.cover_i ? 'https://covers.openlibrary.org/b/id/'+d.cover_i+'-L.jpg' : undefined
-                              setNewBook(p=>({...p, title:d.title, author:d.author_name?.[0]||'Desconocido', year:d.first_publish_year, custom_cover:coverUrl}))
-                            } else { alert('ISBN no encontrado') }
-                          } catch { alert('Error de conexión') }
-                          setSearching(false)
-                        }} style={{ background:'#C9A84C', border:'none', borderRadius:8, padding:'0 14px', color:'#080808', fontSize:11, fontWeight:700, cursor:'pointer' }}>
-                          {searching ? '...' : 'BUSCAR'}
-                        </button>
-                      </div>
+              {addMode === 'manuscript' && (
+                <>
+                  <div onClick={() => manuFileRef.current?.click()}
+                    style={{ border:'1.5px dashed #C9A84C44', borderRadius:10, padding:20, marginBottom:14, textAlign:'center', cursor:'pointer', background:manuDone?'rgba(201,168,76,0.06)':'transparent' }}>
+                    <div style={{ fontSize:28, marginBottom:6 }}>{manuDone?'📄':'📎'}</div>
+                    <div style={{ fontSize:12, fontWeight:500, color:'#E4DFD6' }}>
+                      {manuProcessing ? 'Procesando...' : manuDone ? `✓ ${manuPages} páginas procesadas` : 'Subir páginas o PDF'}
                     </div>
-                  )}
+                    <div style={{ fontSize:9, color:'#5C574F', marginTop:4 }}>PDF, JPG, PNG · hasta 200 páginas</div>
+                    <input ref={manuFileRef} type="file" accept=".pdf,image/*" multiple style={{ display:'none' }} onChange={handleManuFile} />
+                  </div>
+                  <div style={{ marginBottom:10 }}>
+                    <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>TÍTULO DEL MANUSCRITO</label>
+                    <input value={manuTitle} onChange={e => setManuTitle(e.target.value)} placeholder="Nombre de tu manuscrito" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' }} />
+                  </div>
+                  <div style={{ marginBottom:10 }}>
+                    <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>AUTOR</label>
+                    <input value={manuAuthor} onChange={e => setManuAuthor(e.target.value)} placeholder="Tu nombre" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' }} />
+                  </div>
+                  <div style={{ marginBottom:14 }}>
+                    <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ESTADO</label>
+                    <div style={{ display:'flex', gap:6 }}>
+                      {(['pending','reading','finished'] as BookStatus[]).map(s => (
+                        <button key={s} onClick={() => setManuStatus(s)} style={{ flex:1, padding:'6px 8px', borderRadius:6, border:`1px solid ${manuStatus===s?'#C9A84C44':'#ffffff08'}`, background:manuStatus===s?'#C9A84C22':'#1a1a1a', color:manuStatus===s?'#C9A84C':'#5C574F', fontSize:9, fontWeight:600, cursor:'pointer' }}>
+                          {STATUS_LABELS[s]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={handleAddManuscript} style={{ width:'100%', background:'#C9A84C', border:'none', borderRadius:10, padding:14, fontSize:12, fontWeight:700, color:'#080808', letterSpacing:1, cursor:'pointer' }}>
+                    REGISTRAR MANUSCRITO
+                  </button>
+                </>
+              )}
+
+              {addMode === 'search' && (
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>BUSCAR EN OPEN LIBRARY</label>
+                  <input autoFocus value={searchQ} onChange={e => { setSearchQ(e.target.value); searchOL(e.target.value) }} placeholder="Título, autor, palabras clave..." style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' }} />
+                  {searching && <div style={{ color:'#C9A84C', fontSize:10, padding:'6px 0' }}>Buscando...</div>}
                   {searchResults.length > 0 && !newBook.title && (
-                    <div style={{ background: '#1a1a1a', borderRadius: 10, border: '1px solid #C9A84C22', marginTop: 6, overflow: 'hidden' }}>
+                    <div style={{ background:'#1a1a1a', borderRadius:10, border:'1px solid #C9A84C22', marginTop:6, overflow:'hidden' }}>
+                      <div style={{ fontSize:7, letterSpacing:2, color:'#8B6914', padding:'8px 12px 4px' }}>{searchResults.length} RESULTADOS</div>
                       {searchResults.map(r => (
-                        <button key={r.key} onClick={() => { setNewBook({ title: r.title, author: r.author_name?.[0], isbn: r.isbn?.[0], year: r.first_publish_year, status: 'pending' }); setSearchResults([]) }} style={{ width: '100%', background: 'none', border: 'none', borderBottom: '1px solid #ffffff06', padding: '10px 12px', display: 'flex', gap: 10, cursor: 'pointer', textAlign: 'left', alignItems: 'center' }}>
-                          {r.cover_i ? <img src={`https://covers.openlibrary.org/b/id/${r.cover_i}-S.jpg`} style={{ width: 32, height: 44, borderRadius: 3, objectFit: 'cover' }} /> : <div style={{ width: 32, height: 44, background: '#222', borderRadius: 3 }} />}
-                          <div>
-                            <div style={{ fontSize: 12, color: '#E4DFD6', fontWeight: 500 }}>{r.title}</div>
-                            <div style={{ fontSize: 10, color: '#9A9289' }}>{r.author_name?.[0]}</div>
-                            {r.first_publish_year && <div style={{ fontSize: 9, color: '#5C574F' }}>{r.first_publish_year}</div>}
+                        <button key={r.key} onClick={() => {
+                          const coverUrl = r.cover_i ? `https://covers.openlibrary.org/b/id/${r.cover_i}-L.jpg` : undefined
+                          setNewBook({ title:r.title, author:r.author_name?.[0], isbn:r.isbn?.[0], year:r.first_publish_year, status:'pending', custom_cover:coverUrl })
+                          setSearchResults([])
+                        }} style={{ width:'100%', background:'none', border:'none', borderBottom:'1px solid #ffffff06', padding:'10px 12px', display:'flex', gap:10, cursor:'pointer', textAlign:'left', alignItems:'center' }}>
+                          {r.cover_i
+                            ? <img src={`https://covers.openlibrary.org/b/id/${r.cover_i}-M.jpg`} style={{ width:38, height:54, borderRadius:4, objectFit:'cover', flexShrink:0 }} />
+                            : <div style={{ width:38, height:54, background:'#222', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><span style={{ opacity:0.3 }}>🦇</span></div>
+                          }
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:12, color:'#E4DFD6', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.title}</div>
+                            <div style={{ fontSize:10, color:'#9A9289', marginTop:2 }}>{r.author_name?.[0]}</div>
+                            <div style={{ display:'flex', gap:6, marginTop:3 }}>
+                              {r.first_publish_year && <span style={{ fontSize:9, color:'#5C574F' }}>{r.first_publish_year}</span>}
+                              {r.cover_i && <span style={{ fontSize:9, color:'#4ADE80' }}>● con portada</span>}
+                            </div>
                           </div>
+                          <span style={{ color:'#C9A84C', fontSize:18 }}>›</span>
                         </button>
                       ))}
                     </div>
@@ -526,45 +454,74 @@ export default function App() {
                 </div>
               )}
 
-              {newBook.title && (
-                <div style={{ background: '#1a1a1a', borderRadius: 10, border: '1px solid #C9A84C44', padding: 12, marginBottom: 12, display: 'flex', gap: 10 }}>
-                  <CoverImg isbn={newBook.isbn} size={54} height={76} />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#E4DFD6' }}>{newBook.title}</div>
-                    <div style={{ fontSize: 11, color: '#9A9289', marginTop: 3 }}>{newBook.author}</div>
-                    {newBook.year && <div style={{ fontSize: 10, color: '#5C574F', marginTop: 4 }}>{newBook.year}</div>}
-                    <button onClick={() => setNewBook({ status: 'pending' })} style={{ fontSize: 10, color: '#60A5FA', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4 }}>Cambiar</button>
+              {addMode === 'isbn' && (
+                <div style={{ marginBottom:12 }}>
+                  <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ISBN — escribe el número</label>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <input value={newBook.isbn||''} onChange={e => setNewBook(p=>({...p, isbn:e.target.value}))} placeholder="9788490326237" inputMode="numeric" style={{ flex:1, background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8 }} />
+                    <button onClick={async () => {
+                      const isbn = (newBook.isbn||'').replace(/[^0-9X]/gi,'')
+                      if (!isbn) return alert('Escribe un ISBN')
+                      setSearching(true)
+                      try {
+                        const r = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=title,author_name,cover_i,first_publish_year&limit=1`)
+                        const j = await r.json()
+                        const d = j.docs?.[0]
+                        if (d) {
+                          const coverUrl = d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : undefined
+                          setNewBook(p=>({...p, title:d.title, author:d.author_name?.[0]||'Desconocido', year:d.first_publish_year, custom_cover:coverUrl}))
+                        } else { alert('ISBN no encontrado') }
+                      } catch { alert('Error de conexión') }
+                      setSearching(false)
+                    }} style={{ background:'#C9A84C', border:'none', borderRadius:8, padding:'0 14px', color:'#080808', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                      {searching ? '...' : 'BUSCAR'}
+                    </button>
                   </div>
                 </div>
               )}
 
-              {(addMode === 'manual' || (addMode === 'search' && !newBook.title)) && (
-                <>
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 8, letterSpacing: 2, color: '#8B6914', display: 'block', marginBottom: 6 }}>TÍTULO *</label>
-                    <input value={newBook.title||''} onChange={e => setNewBook(p => ({...p, title: e.target.value}))} placeholder="Título del libro" style={{ width: '100%', background: '#1a1a1a', border: '1px solid #C9A84C22', color: '#E4DFD6', fontSize: 13, padding: '10px 12px', borderRadius: 8 }} />
+              {newBook.title && (
+                <div style={{ background:'#1a1a1a', borderRadius:10, border:'1px solid #C9A84C44', padding:12, marginBottom:12, display:'flex', gap:10 }}>
+                  <CoverImg isbn={newBook.isbn} customCover={newBook.custom_cover} size={54} height={76} />
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#E4DFD6' }}>{newBook.title}</div>
+                    <div style={{ fontSize:11, color:'#9A9289', marginTop:3 }}>{newBook.author}</div>
+                    {newBook.year && <div style={{ fontSize:10, color:'#5C574F', marginTop:4 }}>{newBook.year}</div>}
+                    <button onClick={() => setNewBook({status:'pending'})} style={{ fontSize:10, color:'#60A5FA', background:'none', border:'none', cursor:'pointer', marginTop:4 }}>Cambiar</button>
                   </div>
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 8, letterSpacing: 2, color: '#8B6914', display: 'block', marginBottom: 6 }}>AUTOR</label>
-                    <input value={newBook.author||''} onChange={e => setNewBook(p => ({...p, author: e.target.value}))} placeholder="Nombre del autor" style={{ width: '100%', background: '#1a1a1a', border: '1px solid #C9A84C22', color: '#E4DFD6', fontSize: 13, padding: '10px 12px', borderRadius: 8 }} />
+                </div>
+              )}
+
+              {addMode === 'manual' && (
+                <>
+                  <div style={{ marginBottom:10 }}>
+                    <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>TÍTULO *</label>
+                    <input value={newBook.title||''} onChange={e => setNewBook(p=>({...p, title:e.target.value}))} placeholder="Título del libro" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' }} />
+                  </div>
+                  <div style={{ marginBottom:10 }}>
+                    <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>AUTOR</label>
+                    <input value={newBook.author||''} onChange={e => setNewBook(p=>({...p, author:e.target.value}))} placeholder="Nombre del autor" style={{ width:'100%', background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8, boxSizing:'border-box' }} />
                   </div>
                 </>
               )}
 
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 8, letterSpacing: 2, color: '#8B6914', display: 'block', marginBottom: 6 }}>ESTADO INICIAL</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {(['pending','reading','finished','wishlist'] as BookStatus[]).map(s => (
-                    <button key={s} onClick={() => setNewBook(p => ({...p, status: s}))} style={{ padding: '6px 12px', borderRadius: 6, border: `1px solid ${newBook.status===s ? '#C9A84C44' : '#ffffff08'}`, background: newBook.status===s ? '#C9A84C22' : '#1a1a1a', color: newBook.status===s ? '#C9A84C' : '#5C574F', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>
-                      {STATUS_LABELS[s]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button onClick={handleAddBook} style={{ width: '100%', background: '#C9A84C', border: 'none', borderRadius: 10, padding: 14, fontSize: 12, fontWeight: 700, color: '#080808', letterSpacing: 1, cursor: 'pointer' }}>
-                REGISTRAR EN EL ARCHIVO
-              </button>
+              {addMode !== 'manuscript' && (
+                <>
+                  <div style={{ marginBottom:14 }}>
+                    <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ESTADO INICIAL</label>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {(['pending','reading','finished','wishlist'] as BookStatus[]).map(s => (
+                        <button key={s} onClick={() => setNewBook(p=>({...p, status:s}))} style={{ padding:'6px 12px', borderRadius:6, border:`1px solid ${newBook.status===s?'#C9A84C44':'#ffffff08'}`, background:newBook.status===s?'#C9A84C22':'#1a1a1a', color:newBook.status===s?'#C9A84C':'#5C574F', fontSize:9, fontWeight:600, cursor:'pointer' }}>
+                          {STATUS_LABELS[s]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={handleAddBook} style={{ width:'100%', background:'#C9A84C', border:'none', borderRadius:10, padding:14, fontSize:12, fontWeight:700, color:'#080808', letterSpacing:1, cursor:'pointer' }}>
+                    REGISTRAR EN EL ARCHIVO
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
