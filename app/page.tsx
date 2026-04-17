@@ -121,6 +121,10 @@ export default function App() {
   const [searchQ, setSearchQ] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searching, setSearching] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scanResult, setScanResult] = useState<any>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const scannerRef = useRef<any>(null)
   const [newBook, setNewBook] = useState<Partial<Book>>({ status: 'pending' })
   const [wishTab, setWishTab] = useState<'recs'|'wishlist'>('recs')
   const [wishSearch, setWishSearch] = useState('')
@@ -134,6 +138,39 @@ export default function App() {
   const [rewardDesc, setRewardDesc] = useState('')
 
   useEffect(() => { init() }, [])
+
+  useEffect(() => {
+    if (!scanning || !videoRef.current) return
+    let active = true
+    const startScanner = async () => {
+      try {
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        const reader = new BrowserMultiFormatReader()
+        scannerRef.current = reader
+        const devices = await BrowserMultiFormatReader.listVideoInputDevices()
+        const deviceId = devices[devices.length - 1]?.deviceId
+        await reader.decodeFromVideoDevice(deviceId, videoRef.current!, async (result, err) => {
+          if (!result || !active) return
+          const isbn = result.getText()
+          try {
+            reader.reset()
+            active = false
+            const r = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=title,author_name,cover_i,first_publish_year,isbn&limit=1`)
+            const j = await r.json()
+            const d = j.docs?.[0]
+            if (d) {
+              const coverUrl = d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-L.jpg` : undefined
+              setScanResult({ title:d.title, author:d.author_name?.[0]||'Desconocido', isbn:d.isbn?.[0]||isbn, year:d.first_publish_year, status:'pending', custom_cover:coverUrl })
+            } else {
+              setScanResult({ title:'ISBN: '+isbn, author:'No encontrado en OpenLibrary', isbn, status:'pending' })
+            }
+          } catch { setScanResult({ title:'ISBN: '+isbn, author:'', isbn, status:'pending' }) }
+        })
+      } catch(e) { console.error(e); setScanning(false) }
+    }
+    startScanner()
+    return () => { active = false; try { scannerRef.current?.reset() } catch {} }
+  }, [scanning])
 
   const finished = books.filter(b => b.status === 'finished')
   const reading = books.filter(b => b.status === 'reading')
@@ -819,6 +856,43 @@ export default function App() {
       </div>
 
       {/* GENRE PICKER MODAL */}
+      {scanning && (
+        <div style={{ position:'fixed', inset:0, background:'#000', zIndex:300, display:'flex', flexDirection:'column' }}>
+          <div style={{ padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ color:'#C9A84C', fontSize:12, fontWeight:700, letterSpacing:2 }}>ESCANEAR ISBN</span>
+            <button onClick={async () => {
+              if (scannerRef.current) { try { scannerRef.current.reset() } catch {} }
+              setScanning(false)
+            }} style={{ background:'none', border:'none', color:'#fff', fontSize:20, cursor:'pointer' }}>✕</button>
+          </div>
+          <div style={{ flex:1, position:'relative', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <video ref={videoRef} style={{ width:'100%', maxHeight:'60vh', objectFit:'cover' }} autoPlay muted playsInline />
+            <div style={{ position:'absolute', width:260, height:120, border:'2px solid #C9A84C', borderRadius:8, boxShadow:'0 0 0 1000px rgba(0,0,0,0.5)' }} />
+            <div style={{ position:'absolute', bottom:20, left:0, right:0, textAlign:'center', color:'#C9A84C', fontSize:11 }}>Centra el código de barras en el recuadro</div>
+          </div>
+          {scanResult && (
+            <div style={{ padding:16, background:'#1a1a1a', borderTop:'1px solid #C9A84C22' }}>
+              <div style={{ fontSize:9, color:'#5C574F', marginBottom:6, letterSpacing:2 }}>LIBRO ENCONTRADO</div>
+              <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:12 }}>
+                {scanResult.custom_cover && <img src={scanResult.custom_cover} style={{ width:44, height:62, borderRadius:5, objectFit:'cover' }} />}
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:'#E4DFD6' }}>{scanResult.title}</div>
+                  <div style={{ fontSize:11, color:'#9A9289' }}>{scanResult.author}</div>
+                  {scanResult.year && <div style={{ fontSize:10, color:'#5C574F' }}>{scanResult.year}</div>}
+                </div>
+              </div>
+              <button onClick={() => {
+                setNewBook(scanResult)
+                if (scannerRef.current) { try { scannerRef.current.reset() } catch {} }
+                setScanning(false)
+              }} style={{ width:'100%', background:'#C9A84C', border:'none', borderRadius:10, padding:14, fontSize:13, fontWeight:700, color:'#080808', cursor:'pointer' }}>
+                ✓ AÑADIR AL ARCHIVO
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {showGenrePicker && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }} onClick={() => setShowGenrePicker(false)}>
           <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', background: '#1a1a1a', borderRadius: '20px 20px 0 0', padding: 20 }} onClick={e => e.stopPropagation()}>
