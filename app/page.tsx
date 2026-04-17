@@ -422,7 +422,14 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  <button onClick={handleAddManuscript} style={{ width:'100%', background:'#C9A84C', border:'none', borderRadius:10, padding:14, fontSize:12, fontWeight:700, color:'#080808', letterSpacing:1, cursor:'pointer' }}>
+                  <button onClick={async () => {
+                    if (!manuTitle) return alert('Añade un título')
+                    if (!manuDone) return alert('Sube primero el archivo')
+                    const b: Book = { id:'m'+Date.now(), title:manuTitle, author:manuAuthor||'Yo', status:manuStatus, genre:'Manuscrito', is_own:true, synopsis:`Manuscrito personal · ${manuPages} páginas` }
+                    await addBook(b)
+                    setManuTitle(''); setManuAuthor(''); setManuDone(false); setManuPages(0)
+                    alert('Manuscrito registrado'); setView('library')
+                  }} style={{ width:'100%', background:'#C9A84C', border:'none', borderRadius:10, padding:14, fontSize:12, fontWeight:700, color:'#080808', letterSpacing:1, cursor:'pointer' }}>
                     REGISTRAR MANUSCRITO
                   </button>
                 </>
