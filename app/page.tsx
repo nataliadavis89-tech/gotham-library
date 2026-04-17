@@ -486,7 +486,7 @@ export default function App() {
                   {searching && <div style={{ color: '#C9A84C', fontSize: 10, padding: '6px 0' }}>Buscando...</div>}
                   {addMode === 'isbn' && (
                     <div style={{ marginBottom:12 }}>
-                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ISBN — escribe el número</label>
+                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ISBN</label>
                       <div style={{ display:'flex', gap:8 }}>
                         <input value={newBook.isbn||''} onChange={e => setNewBook(p=>({...p, isbn:e.target.value}))} placeholder="9788490326237" inputMode="numeric" style={{ flex:1, background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8 }} />
                         <button onClick={async () => {
