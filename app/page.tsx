@@ -153,7 +153,6 @@ export default function App() {
           if (!result || !active) return
           const isbn = result.getText()
           try {
-            reader.reset()
             active = false
             const r = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=title,author_name,cover_i,first_publish_year,isbn&limit=1`)
             const j = await r.json()
@@ -169,7 +168,7 @@ export default function App() {
       } catch(e) { console.error(e); setScanning(false) }
     }
     startScanner()
-    return () => { active = false; try { scannerRef.current?.reset() } catch {} }
+    return () => { active = false; try { scannerRef.current = null } catch {} }
   }, [scanning])
 
   const finished = books.filter(b => b.status === 'finished')
@@ -861,7 +860,7 @@ export default function App() {
           <div style={{ padding:'14px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <span style={{ color:'#C9A84C', fontSize:12, fontWeight:700, letterSpacing:2 }}>ESCANEAR ISBN</span>
             <button onClick={async () => {
-              if (scannerRef.current) { try { scannerRef.current.reset() } catch {} }
+              if (scannerRef.current) { try { scannerRef.current = null } catch {} }
               setScanning(false)
             }} style={{ background:'none', border:'none', color:'#fff', fontSize:20, cursor:'pointer' }}>✕</button>
           </div>
@@ -883,7 +882,7 @@ export default function App() {
               </div>
               <button onClick={() => {
                 setNewBook(scanResult)
-                if (scannerRef.current) { try { scannerRef.current.reset() } catch {} }
+                if (scannerRef.current) { try { scannerRef.current = null } catch {} }
                 setScanning(false)
               }} style={{ width:'100%', background:'#C9A84C', border:'none', borderRadius:10, padding:14, fontSize:13, fontWeight:700, color:'#080808', cursor:'pointer' }}>
                 ✓ AÑADIR AL ARCHIVO
