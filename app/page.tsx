@@ -482,8 +482,33 @@ export default function App() {
               {addMode === 'search' && (
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 8, letterSpacing: 2, color: '#8B6914', display: 'block', marginBottom: 6 }}>BUSCAR EN OPEN LIBRARY</label>
-                  <input value={searchQ} onChange={e => { setSearchQ(e.target.value); searchOL(e.target.value) }} placeholder="Título, autor..." style={{ width: '100%', background: '#1a1a1a', border: '1px solid #C9A84C22', color: '#E4DFD6', fontSize: 13, padding: '10px 12px', borderRadius: 8 }} />
+                  <input autoFocus value={searchQ} onChange={e => { setSearchQ(e.target.value); searchOL(e.target.value) }} placeholder="Título, autor..." style={{ width: '100%', background: '#1a1a1a', border: '1px solid #C9A84C22', color: '#E4DFD6', fontSize: 13, padding: '10px 12px', borderRadius: 8 }} />
                   {searching && <div style={{ color: '#C9A84C', fontSize: 10, padding: '6px 0' }}>Buscando...</div>}
+                  {addMode === 'isbn' && (
+                    <div style={{ marginBottom:12 }}>
+                      <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>ISBN — escribe el número</label>
+                      <div style={{ display:'flex', gap:8 }}>
+                        <input value={newBook.isbn||''} onChange={e => setNewBook(p=>({...p, isbn:e.target.value}))} placeholder="9788490326237" inputMode="numeric" style={{ flex:1, background:'#1a1a1a', border:'1px solid #C9A84C22', color:'#E4DFD6', fontSize:13, padding:'10px 12px', borderRadius:8 }} />
+                        <button onClick={async () => {
+                          const isbn = (newBook.isbn||'').replace(/[^0-9X]/gi,'')
+                          if (!isbn) return alert('Escribe un ISBN')
+                          setSearching(true)
+                          try {
+                            const r = await fetch('https://openlibrary.org/search.json?isbn='+isbn+'&fields=title,author_name,cover_i,first_publish_year&limit=1')
+                            const j = await r.json()
+                            const d = j.docs?.[0]
+                            if (d) {
+                              const coverUrl = d.cover_i ? 'https://covers.openlibrary.org/b/id/'+d.cover_i+'-L.jpg' : undefined
+                              setNewBook(p=>({...p, title:d.title, author:d.author_name?.[0]||'Desconocido', year:d.first_publish_year, custom_cover:coverUrl}))
+                            } else { alert('ISBN no encontrado') }
+                          } catch { alert('Error de conexión') }
+                          setSearching(false)
+                        }} style={{ background:'#C9A84C', border:'none', borderRadius:8, padding:'0 14px', color:'#080808', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                          {searching ? '...' : 'BUSCAR'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {searchResults.length > 0 && !newBook.title && (
                     <div style={{ background: '#1a1a1a', borderRadius: 10, border: '1px solid #C9A84C22', marginTop: 6, overflow: 'hidden' }}>
                       {searchResults.map(r => (
