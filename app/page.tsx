@@ -394,7 +394,15 @@ export default function App() {
                       {manuProcessing ? 'Procesando...' : manuDone ? `✓ ${manuPages} páginas procesadas` : 'Subir páginas o PDF'}
                     </div>
                     <div style={{ fontSize:9, color:'#5C574F', marginTop:4 }}>PDF, JPG, PNG · hasta 200 páginas</div>
-                    <input ref={manuFileRef} type="file" accept=".pdf,image/*" multiple style={{ display:'none' }} onChange={handleManuFile} />
+                    <input ref={manuFileRef} type="file" accept=".pdf,image/*" multiple style={{ display:'none' }} onChange={async e => {
+                    const files = e.target.files
+                    if (!files || files.length === 0) return
+                    setManuProcessing(true)
+                    await new Promise(r => setTimeout(r, 800))
+                    setManuPages(files.length)
+                    setManuProcessing(false)
+                    setManuDone(true)
+                  }} />
                   </div>
                   <div style={{ marginBottom:10 }}>
                     <label style={{ fontSize:8, letterSpacing:2, color:'#8B6914', display:'block', marginBottom:6 }}>TÍTULO DEL MANUSCRITO</label>
